@@ -75,6 +75,24 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // Set the target process name and port in the eBPF program
+    int config_fd = bpf_object__find_map_fd_by_name(obj, "config_map");
+    if (config_fd >= 0) {
+        // Set process name (key 0)
+        __u32 key = 0;
+        char process_name[16] = {0};
+        strncpy(process_name, proc_name, sizeof(process_name) - 1);
+        bpf_map_update_elem(config_fd, &key, process_name, BPF_ANY);
+        
+        // Set target port (key 1) - store as 2 bytes in the char array
+        key = 1;
+        char port_data[16] = {0};
+        *(__u16*)port_data = (__u16)target_port;
+        bpf_map_update_elem(config_fd, &key, port_data, BPF_ANY);
+        
+        printf("Set config: process='%s', port=%d\n", proc_name, target_port);
+    }
+
     // Get the PID of the target process
     pid_t target_pid = get_pid_by_name(proc_name);
     if (target_pid <= 0) {
@@ -160,15 +178,15 @@ int main(int argc, char **argv) {
             printf("Port\tPID\tProcess\t\tPackets\n");
             printf("----\t---\t-------\t\t-------\n");
             
-            __u32 key = 0, next_key;
+            __u64 key = 0, next_key;
             __u64 count;
             
             while (bpf_map_get_next_key(stats_fd, &key, &next_key) == 0) {
                 int ret = bpf_map_lookup_elem(stats_fd, &next_key, &count);
                 if (ret == 0) {
-                    // Decode the combined key: (port << 16) | pid
-                    __u16 port = (next_key >> 16) & 0xFFFF;
-                    __u32 pid = next_key & 0xFFFF;
+                    // Decode the combined key: (port << 32) | pid
+                    __u16 port = (next_key >> 32) & 0xFFFF;
+                    __u32 pid = next_key & 0xFFFFFFFF;
                     
                     printf("%u\t%u\t%.12s\t\t%llu\n", port, pid, proc_name, count);
                 }
