@@ -66,10 +66,6 @@ func main() {
 
 ## Files in this Directory
 
-### Analysis Files
-- `code_analysis.md` - Comprehensive analysis of the code
-- `README.md` - This file
-
 ### Demo Files
 - `demo_original.go` - Original problematic code
 - `demo_fixed.go` - Fixed version with proper synchronization
